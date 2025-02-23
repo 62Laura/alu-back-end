@@ -1,53 +1,74 @@
 #!/usr/bin/python3
-""""Module"""
+"""
+Script to fetch an employee's TODO list progress using a REST API and
+export the data to a CSV file.
+"""
 
 import csv
-import json
 import requests
-from sys import argv
+import sys
+
+
+def fetch_todo_progress(employee_id):
+    """Fetches and displays the TODO list progress of an employee."""
+    base_url = "https://jsonplaceholder.typicode.com"
+
+    # Validate employee_id
+    try:
+        employee_id = int(employee_id)
+        if employee_id <= 0:
+            raise ValueError
+    except ValueError:
+        print("Error: Employee ID must be a positive integer.")
+        return
+
+    # Fetch employee data
+    user_response = requests.get(f"{base_url}/users/{employee_id}")
+    if user_response.status_code != 200:
+        print("Employee not found.")
+        return
+
+    user_data = user_response.json()
+    employee_name = user_data.get("name")
+
+    # Fetch employee's tasks
+    todos_response = requests.get(
+        f"{base_url}/todos", params={"userId": employee_id}
+    )
+    if todos_response.status_code != 200:
+        print("Could not retrieve TODO list.")
+        return
+
+    todos = todos_response.json()
+    total_tasks = len(todos)
+    completed_tasks = [task for task in todos if task.get("completed")]
+    num_completed_tasks = len(completed_tasks)
+
+    # Construct the progress string in two parts to meet PEP8 line length
+    progress_str = (
+        f"Employee {employee_name} is done with tasks("
+        f"{num_completed_tasks}/{total_tasks}):"
+    )
+    print(progress_str)
+
+    for task in completed_tasks:
+        print(f"\t {task.get('title')}")
+
+    # Export data to CSV file
+    csv_filename = f"{employee_id}.csv"
+    with open(csv_filename, mode='w', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
+        for task in todos:
+            csv_writer.writerow([
+                employee_id, user_data.get("username"),
+                task.get("completed"), task.get("title")
+            ])
+    print(f"Data exported to {csv_filename}")
 
 
 if __name__ == "__main__":
-    """
-        request user info by employee ID
-    """
-    link = 'https://jsonplaceholder.typicode.com/users/{}/'.format(argv[1])
-    request_employee = requests.get(
-        link, verify=False)
-    """
-        convert json to dictionary
-    """
-    user = json.loads(request_employee.text)
-    """
-        extract username
-    """
-    username = user.get("username")
+    if len(sys.argv) != 2:
+        print("Usage: ./employee_todo_progress.py <employee_id>")
+        sys.exit(1)
 
-    """
-        request user's TODO list
-    """
-    num = argv[1]
-    url = 'https://jsonplaceholder.typicode.com/users/{}/todos'.format(num)
-    request_todos = requests.get(
-        url, verify=False)
-    """
-        dictionary to store task status(completed) in boolean format
-    """
-    tasks = {}
-    """
-        convert json to list of dictionaries
-    """
-    user_todos = json.loads(request_todos.text)
-    """
-        loop through dictionary & get completed tasks
-    """
-    for dictionary in user_todos:
-        tasks.update({dictionary.get("title"): dictionary.get("completed")})
-
-    """
-        export to CSV
-    """
-    with open('{}.csv'.format(argv[1]), mode='w') as file:
-        file_editor = csv.writer(file, delimiter=',', quoting=csv.QUOTE_ALL)
-        for k, v in tasks.items():
-            file_editor.writerow([argv[1], username, v, k])
+    fetch_todo_progress(sys.argv[1])
