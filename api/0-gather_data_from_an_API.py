@@ -43,8 +43,6 @@ def main(employee_id):
     for title, completed in tasks.items():
         if completed:
             print(f"\t {title}")
-
-
 if __name__ == "__main__":
     if len(argv) > 1:
         main(argv[1])
